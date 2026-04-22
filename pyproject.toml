@@ -1,0 +1,57 @@
+[project]
+name = "openfaas-sdk"
+version = "0.1.0"
+description = "The official Python SDK for OpenFaaS"
+readme = "README.md"
+license = "MIT"
+authors = [
+    { name = "OpenFaaS Ltd", email = "support@openfaas.com" },
+]
+requires-python = ">= 3.10"
+classifiers = [
+    "Typing :: Typed",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "License :: OSI Approved :: MIT License",
+]
+dependencies = [
+    "requests>=2.20.0, <3",
+    "pydantic>=2.0.0, <3",
+]
+
+[project.urls]
+Homepage = "https://github.com/openfaas/python-sdk"
+Repository = "https://github.com/openfaas/python-sdk"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["openfaas"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+pythonVersion = "3.10"
+include = ["openfaas"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["I", "B", "F401", "E722", "T201"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "requests-mock>=1.12.1",
+]
