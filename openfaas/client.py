@@ -104,6 +104,48 @@ def _fn_cache_key(name: str, namespace: str) -> str:
     return f"{name}.{namespace}"
 
 
+def _parse_function_name_namespace(path: str) -> tuple[str, str]:
+    """Extract ``(name, namespace)`` from a function invocation URL path.
+
+    Handles both ``/function/name.namespace`` and
+    ``/async-function/name.namespace`` path formats.
+
+    Raises:
+        ValueError: If the path does not match the expected format.
+    """
+    parts = path.lstrip("/").split("/", 1)
+    if len(parts) != 2 or parts[0] not in ("function", "async-function"):
+        raise ValueError(f"Cannot parse function name/namespace from path: {path!r}")
+    slug = parts[1]
+    if "." not in slug:
+        raise ValueError(
+            f"Function path {slug!r} does not contain a namespace — "
+            "expected format: /function/<name>.<namespace>"
+        )
+    name, _, namespace = slug.partition(".")
+    return name, namespace
+
+
+class _FunctionAuth(requests.auth.AuthBase):
+    """Compound auth: applies gateway auth then overrides Authorization with a
+    per-function Bearer token.
+
+    The gateway auth (e.g. BasicAuth) may already set ``Authorization`` for the
+    gateway itself.  For function invocations the function-scoped JWT must take
+    precedence so the gateway can forward it to the function.
+    """
+
+    def __init__(self, gateway_auth: requests.auth.AuthBase | None, fn_token: str) -> None:
+        self._gateway_auth = gateway_auth
+        self._fn_token = fn_token
+
+    def __call__(self, r: requests.PreparedRequest) -> requests.PreparedRequest:
+        if self._gateway_auth is not None:
+            r = self._gateway_auth(r)
+        r.headers["Authorization"] = f"Bearer {self._fn_token}"
+        return r
+
+
 # ---------------------------------------------------------------------------
 # Synchronous client
 # ---------------------------------------------------------------------------
@@ -368,6 +410,93 @@ class Client:
                     yield msg
         finally:
             response.close()
+
+    # ------------------------------------------------------------------
+    # Function invocation
+    # ------------------------------------------------------------------
+
+    def invoke_function(
+        self,
+        name: str,
+        namespace: str = "openfaas-fn",
+        *,
+        payload: bytes | str | None = None,
+        method: str = "POST",
+        headers: dict[str, str] | None = None,
+        query_params: dict[str, str] | None = None,
+        async_invoke: bool = False,
+        callback_url: str | None = None,
+        use_function_auth: bool = False,
+    ) -> requests.Response:
+        """Invoke a deployed function and return the raw response.
+
+        No exception is raised for non-2xx responses — function responses are
+        application-level and the caller decides how to interpret them.
+
+        Args:
+            name: Function name.
+            namespace: Function namespace.  Defaults to ``"openfaas-fn"``.
+            payload: Request body.  Accepts :class:`bytes` or :class:`str`
+                (UTF-8 encoded automatically).
+            method: HTTP method.  Defaults to ``"POST"``.
+            headers: Additional request headers merged with any auth headers.
+            query_params: Query string parameters.
+            async_invoke: If ``True``, the request is sent to
+                ``/async-function/{name}.{namespace}`` and the gateway queues
+                the invocation.  The gateway responds with ``202 Accepted``
+                and the function result is not returned synchronously.
+            callback_url: When *async_invoke* is ``True``, the gateway will
+                ``POST`` the function result to this URL.  Ignored unless
+                *async_invoke* is also ``True``.
+            use_function_auth: If ``True``, obtain a per-function scoped token
+                via :meth:`get_function_token` and attach it as
+                ``Authorization: Bearer <token>``, overriding any gateway-level
+                auth header.  Requires a ``function_token_source`` to be
+                configured on the client.
+
+        Returns:
+            The raw :class:`requests.Response` from the function (or gateway
+            for async invocations).
+
+        Raises:
+            :exc:`ValueError`: If *callback_url* is set but *async_invoke* is
+                ``False``.
+            :exc:`~openfaas.APIConnectionError`: On network or timeout errors.
+        """
+        if callback_url is not None and not async_invoke:
+            raise ValueError("callback_url requires async_invoke=True")
+
+        route = "async-function" if async_invoke else "function"
+        url = f"{self._gateway_url}/{route}/{name}.{namespace}"
+
+        merged_headers: dict[str, str] = dict(headers) if headers else {}
+        if callback_url is not None:
+            merged_headers["X-Callback-Url"] = callback_url
+
+        data: bytes | None = None
+        if payload is not None:
+            data = payload.encode() if isinstance(payload, str) else payload
+
+        if use_function_auth:
+            fn_token = self.get_function_token(name, namespace)
+            auth: requests.auth.AuthBase | None = _FunctionAuth(self._auth, fn_token)
+        else:
+            auth = self._auth
+
+        try:
+            return self._http.request(
+                method,
+                url,
+                data=data,
+                headers=merged_headers,
+                params=query_params,
+                auth=auth,
+                timeout=self._timeout,
+            )
+        except requests.ConnectionError as exc:
+            raise APIConnectionError() from exc
+        except requests.Timeout as exc:
+            raise APIConnectionError("Request to the OpenFaaS gateway timed out") from exc
 
     # ------------------------------------------------------------------
     # Function token exchange (for IAM-protected function invocation)

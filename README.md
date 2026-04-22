@@ -4,7 +4,7 @@ The official Python SDK for [OpenFaaS](https://www.openfaas.com).
 
 ## Features
 
-- Full coverage of the OpenFaaS REST API — functions, namespaces, secrets, logs, and system info
+- Full coverage of the OpenFaaS REST API — functions, namespaces, secrets, logs, system info, and function invocation
 - Synchronous `Client` backed by `requests`
 - Multiple auth strategies: Basic auth, OpenFaaS IAM (token exchange), OAuth2 client credentials
 - Pydantic v2 models for all request and response types — validated, typed, IDE-friendly
@@ -243,6 +243,58 @@ from datetime import datetime, timezone
 since = datetime(2024, 1, 1, tzinfo=timezone.utc)
 for msg in client.get_logs("env", namespace="openfaas-fn", since=since):
     print(msg.text)
+```
+
+### Function invocation
+
+`invoke_function` returns the raw `requests.Response` from the function.  Non-2xx responses are **not** raised as exceptions — function responses are application-level and the caller decides how to interpret them.
+
+```python
+# Simple POST with a bytes or str payload
+resp = client.invoke_function("env", payload=b"hello")
+print(resp.status_code, resp.text)
+
+# Custom method and namespace
+resp = client.invoke_function("env", "staging", method="GET")
+
+# Pass extra headers and query parameters
+resp = client.invoke_function(
+    "env",
+    payload="hello",
+    headers={"Content-Type": "text/plain"},
+    query_params={"verbose": "1"},
+)
+
+# Async (queued) invocation — gateway responds 202 Accepted immediately
+client.invoke_function("env", async_invoke=True)
+
+# Async invocation with a callback URL
+client.invoke_function(
+    "env",
+    payload=b"data",
+    async_invoke=True,
+    callback_url="https://my-service.example.com/callback",
+)
+```
+
+#### IAM-scoped function invocation
+
+When OpenFaaS IAM is enabled, use `use_function_auth=True` to automatically
+obtain a per-function scoped token and attach it as a Bearer token.  This
+requires the client to be configured with a `TokenAuth` (or any
+`function_token_source`):
+
+```python
+from openfaas import Client, TokenAuth, ServiceAccountTokenSource
+
+auth = TokenAuth(
+    token_url="https://gateway.example.com/oauth/token",
+    token_source=ServiceAccountTokenSource(),
+)
+
+with Client("https://gateway.example.com", auth=auth) as client:
+    resp = client.invoke_function("my-func", "openfaas-fn", use_function_auth=True)
+    print(resp.text)
 ```
 
 ## Error handling
