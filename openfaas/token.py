@@ -55,7 +55,7 @@ class OAuthError(Exception):
             super().__init__(error)
 
 
-def _parse_token_response(data: dict[str, Any]) -> Token:
+def parse_token_response(data: dict[str, Any]) -> Token:
     """Parse a successful OAuth JSON token response into a :class:`Token`."""
     id_token: str = data.get("access_token", "")
     expires_in: int | None = data.get("expires_in")

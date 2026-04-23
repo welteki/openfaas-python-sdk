@@ -29,7 +29,7 @@ import requests
 import requests.auth
 
 from openfaas.exchange import exchange_id_token
-from openfaas.token import OAuthError, Token, _parse_token_response
+from openfaas.token import OAuthError, Token, parse_token_response
 
 logger = logging.getLogger("openfaas")
 
@@ -76,7 +76,8 @@ class BasicAuth(requests.auth.AuthBase):
         self._requests_auth = requests.auth.HTTPBasicAuth(username, password)
 
     def __call__(self, r: requests.PreparedRequest) -> requests.PreparedRequest:
-        return self._requests_auth(r)
+        result: requests.PreparedRequest = self._requests_auth(r)  # type: ignore[assignment]
+        return result
 
     def __repr__(self) -> str:
         return f"BasicAuth(username={self.username!r})"
@@ -274,7 +275,7 @@ class ClientCredentialsTokenSource:
                 f"Failed to obtain client credentials token: "
                 f"HTTP {response.status_code} — {response.text}"
             )
-        return _parse_token_response(response.json())
+        return parse_token_response(response.json())
 
     def __repr__(self) -> str:
         return (
