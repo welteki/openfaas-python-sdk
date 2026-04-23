@@ -56,7 +56,7 @@ class TokenSource(Protocol):
 # ---------------------------------------------------------------------------
 
 
-class BasicAuth(requests.auth.AuthBase):
+class BasicAuth(requests.auth.HTTPBasicAuth):
     """HTTP Basic authentication using a username and password.
 
     Example::
@@ -69,15 +69,6 @@ class BasicAuth(requests.auth.AuthBase):
         with open("/var/secrets/basic-auth-password") as f:
             auth = BasicAuth("admin", f.read().strip())
     """
-
-    def __init__(self, username: str, password: str) -> None:
-        self.username = username
-        self.password = password
-        self._requests_auth = requests.auth.HTTPBasicAuth(username, password)
-
-    def __call__(self, r: requests.PreparedRequest) -> requests.PreparedRequest:
-        result: requests.PreparedRequest = self._requests_auth(r)  # type: ignore[assignment]
-        return result
 
     def __repr__(self) -> str:
         return f"BasicAuth(username={self.username!r})"
