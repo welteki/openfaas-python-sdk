@@ -14,7 +14,7 @@ import re
 
 import requests
 
-from openfaas.token import OAuthError, Token, _parse_token_response
+from openfaas.token import OAuthError, Token, parse_token_response
 
 logger = logging.getLogger("openfaas")
 
@@ -106,7 +106,7 @@ def exchange_id_token(
                 raise OAuthError("unknown_error", response.text)
 
         response.raise_for_status()
-        return _parse_token_response(response.json())
+        return parse_token_response(response.json())
     finally:
         if _owns_session:
             session.close()

@@ -9,6 +9,7 @@ OpenFaaS gateway.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -76,7 +77,7 @@ class FunctionDeployment(BaseModel):
 
     model_config = {"populate_by_name": True}
 
-    def to_api_dict(self) -> dict:
+    def to_api_dict(self) -> dict[str, Any]:
         """Serialise to the JSON shape expected by the OpenFaaS API."""
         return self.model_dump(by_alias=True, exclude_none=True)
 
@@ -127,7 +128,7 @@ class FunctionNamespace(BaseModel):
     labels: dict[str, str] | None = None
     annotations: dict[str, str] | None = None
 
-    def to_api_dict(self) -> dict:
+    def to_api_dict(self) -> dict[str, Any]:
         return self.model_dump(exclude_none=True)
 
 
@@ -141,7 +142,7 @@ class Secret(BaseModel):
     namespace: str | None = None
     value: str | None = None
 
-    def to_api_dict(self) -> dict:
+    def to_api_dict(self) -> dict[str, Any]:
         return self.model_dump(exclude_none=True)
 
 

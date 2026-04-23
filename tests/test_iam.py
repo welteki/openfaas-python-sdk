@@ -1,7 +1,7 @@
 """Tests for OpenFaaS IAM authentication components.
 
 Covers:
-- Token / OAuthError / _parse_token_response
+- Token / OAuthError / parse_token_response
 - MemoryTokenCache
 - exchange_id_token
 - ServiceAccountTokenSource
@@ -27,7 +27,7 @@ from openfaas.auth import (
     TokenSource,
 )
 from openfaas.exchange import exchange_id_token
-from openfaas.token import OAuthError, Token, _parse_token_response
+from openfaas.token import OAuthError, Token, parse_token_response
 from openfaas.token_cache import MemoryTokenCache
 
 
@@ -89,22 +89,22 @@ class TestOAuthError:
 class TestParseTokenResponse:
     def test_basic_response(self) -> None:
         data = {"access_token": "mytoken", "expires_in": 3600}
-        tok = _parse_token_response(data)
+        tok = parse_token_response(data)
         assert tok.id_token == "mytoken"
         assert tok.expiry is not None
         assert tok.expiry > datetime.now(tz=timezone.utc)
 
     def test_scope_parsed(self) -> None:
         data = {"access_token": "t", "expires_in": 3600, "scope": "openid function"}
-        tok = _parse_token_response(data)
+        tok = parse_token_response(data)
         assert tok.scope == ["openid", "function"]
 
     def test_no_expires_in_gives_none_expiry(self) -> None:
-        tok = _parse_token_response({"access_token": "t"})
+        tok = parse_token_response({"access_token": "t"})
         assert tok.expiry is None
 
     def test_zero_expires_in_gives_none_expiry(self) -> None:
-        tok = _parse_token_response({"access_token": "t", "expires_in": 0})
+        tok = parse_token_response({"access_token": "t", "expires_in": 0})
         assert tok.expiry is None
 
 

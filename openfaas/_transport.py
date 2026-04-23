@@ -33,17 +33,6 @@ def _is_debug() -> bool:
     return os.environ.get("FAAS_DEBUG", "").strip() == "1"
 
 
-def _on_request(r: requests.PreparedRequest, **_: object) -> None:
-    """requests event hook: log outgoing requests when FAAS_DEBUG=1."""
-    if not _is_debug():
-        return
-    headers = {
-        k: _redact_auth(v) if k.lower() == "authorization" else v
-        for k, v in (r.headers or {}).items()
-    }
-    logger.debug("→ %s %s  headers=%s", r.method, r.url, headers)
-
-
 def _on_response(r: requests.Response, **_: object) -> None:
     """requests event hook: log responses when FAAS_DEBUG=1."""
     if _is_debug():
