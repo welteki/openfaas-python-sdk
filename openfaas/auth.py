@@ -44,6 +44,10 @@ class TokenSource(Protocol):
     """Protocol for objects that can provide a raw identity token synchronously.
 
     Any object with a ``token() -> str`` method satisfies this protocol.
+
+    **Thread safety:** ``token()`` may be called concurrently from multiple
+    threads. Implementations must be aware of this and handle concurrent
+    calls safely.
     """
 
     def token(self) -> str:
