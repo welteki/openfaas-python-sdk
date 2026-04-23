@@ -18,7 +18,7 @@ Provided implementations:
 
 Token source protocol:
 
-* :class:`TokenSource` — anything with a ``sync_token() -> str`` method
+* :class:`TokenSource` — anything with a ``token() -> str`` method
 """
 
 from __future__ import annotations
@@ -46,10 +46,10 @@ logger = logging.getLogger("openfaas")
 class TokenSource(Protocol):
     """Protocol for objects that can provide a raw identity token synchronously.
 
-    Any object with a ``sync_token() -> str`` method satisfies this protocol.
+    Any object with a ``token() -> str`` method satisfies this protocol.
     """
 
-    def sync_token(self) -> str:
+    def token(self) -> str:
         """Return a raw JWT identity token string."""
         ...
 
@@ -132,16 +132,16 @@ class TokenAuth(requests.auth.AuthBase):
         self._lock = threading.Lock()
 
     def __call__(self, r: requests.PreparedRequest) -> requests.PreparedRequest:
-        r.headers["Authorization"] = f"Bearer {self.sync_token()}"
+        r.headers["Authorization"] = f"Bearer {self.token()}"
         return r
 
     # TokenSource protocol ------------------------------------------------
 
-    def sync_token(self) -> str:
+    def token(self) -> str:
         """Return a valid gateway token, exchanging a new one if necessary."""
         with self._lock:
             if self._token is None or self._token.is_expired():
-                id_token = self._token_source.sync_token()
+                id_token = self._token_source.token()
                 try:
                     self._token = exchange_id_token(self._token_url, id_token)
                 except OAuthError:
@@ -168,7 +168,7 @@ class ServiceAccountTokenSource:
     """Reads a Kubernetes projected service account token from disk.
 
     The token is read from ``<token_mount_path>/openfaas-token`` on every
-    call to :meth:`sync_token`.  The file is re-read each time rather than
+    call to :meth:`token`.  The file is re-read each time rather than
     cached because Kubernetes rotates projected tokens in-place.
 
     The mount path defaults to ``/var/secrets/tokens`` and can be overridden
@@ -184,7 +184,7 @@ class ServiceAccountTokenSource:
         )
     """
 
-    def sync_token(self) -> str:
+    def token(self) -> str:
         """Read and return the raw service account token from disk."""
         mount_path = os.environ.get("token_mount_path", _DEFAULT_TOKEN_MOUNT_PATH).strip()
         if not mount_path:
@@ -262,7 +262,7 @@ class ClientCredentialsTokenSource:
             data["audience"] = self._audience
         return data
 
-    def sync_token(self) -> str:
+    def token(self) -> str:
         """Return a valid access token, fetching a new one if necessary."""
         with self._lock:
             if self._token is None or self._token.is_expired():
@@ -312,7 +312,7 @@ class ClientCredentialsAuth(requests.auth.AuthBase):
         self._token_source = token_source
 
     def __call__(self, r: requests.PreparedRequest) -> requests.PreparedRequest:
-        r.headers["Authorization"] = f"Bearer {self._token_source.sync_token()}"
+        r.headers["Authorization"] = f"Bearer {self._token_source.token()}"
         return r
 
     def __repr__(self) -> str:
