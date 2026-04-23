@@ -7,7 +7,7 @@ import pytest
 import requests
 import requests.auth
 
-from openfaas.auth import BasicAuth, ClientCredentialsAuth, TokenSource
+from openfaas.auth import BasicAuth, TokenSource
 
 
 def _apply_auth(auth: requests.auth.AuthBase) -> requests.PreparedRequest:

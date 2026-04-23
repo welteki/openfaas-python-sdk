@@ -28,7 +28,6 @@ Quickstart — IAM auth (Kubernetes workload)::
 from openfaas._version import __version__
 from openfaas.auth import (
     BasicAuth,
-    ClientCredentialsAuth,
     ClientCredentialsTokenSource,
     ServiceAccountTokenSource,
     TokenAuth,
@@ -71,7 +70,6 @@ __all__ = [
     "TokenAuth",
     "ServiceAccountTokenSource",
     "ClientCredentialsTokenSource",
-    "ClientCredentialsAuth",
     # Token exchange
     "exchange_id_token",
     # Token

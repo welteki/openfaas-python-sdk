@@ -13,9 +13,6 @@ Provided implementations:
                                           account token from disk
 * :class:`ClientCredentialsTokenSource` — Fetches tokens from an IdP via the
                                            OAuth 2.0 client_credentials grant
-* :class:`ClientCredentialsAuth`        — ``requests.auth.AuthBase`` wrapper
-                                           around a :class:`TokenSource`
-
 Token source protocol:
 
 * :class:`TokenSource` — anything with a ``token() -> str`` method
@@ -285,35 +282,3 @@ class ClientCredentialsTokenSource:
             f"client_id={self._client_id!r}, token_url={self._token_url!r})"
         )
 
-
-# ---------------------------------------------------------------------------
-# Client credentials auth (requests.auth.AuthBase wrapper)
-# ---------------------------------------------------------------------------
-
-
-class ClientCredentialsAuth(requests.auth.AuthBase):
-    """``requests.auth.AuthBase`` wrapper around any :class:`TokenSource`.
-
-    Sets a ``Bearer`` token header on each request by delegating to the
-    underlying token source.
-
-    Typically used with :class:`ClientCredentialsTokenSource` when you want to
-    authenticate directly to the gateway using client credentials rather than
-    going through the OpenFaaS IAM token exchange.
-
-    Example::
-
-        ts = ClientCredentialsTokenSource(...)
-        auth = ClientCredentialsAuth(ts)
-        client = Client("https://gateway.example.com", auth=auth)
-    """
-
-    def __init__(self, token_source: TokenSource) -> None:
-        self._token_source = token_source
-
-    def __call__(self, r: requests.PreparedRequest) -> requests.PreparedRequest:
-        r.headers["Authorization"] = f"Bearer {self._token_source.token()}"
-        return r
-
-    def __repr__(self) -> str:
-        return f"ClientCredentialsAuth(token_source={self._token_source!r})"
