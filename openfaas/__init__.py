@@ -26,6 +26,17 @@ Quickstart — IAM auth (Kubernetes workload)::
 """
 
 from openfaas._version import __version__
+from openfaas.builder import (
+    BUILDER_CONFIG_FILE_NAME,
+    BUILD_FAILED,
+    BUILD_IN_PROGRESS,
+    BUILD_SUCCESS,
+    BuildConfig,
+    BuildResult,
+    FunctionBuilder,
+    create_build_context,
+    make_tar,
+)
 from openfaas.auth import (
     BasicAuth,
     ClientCredentialsTokenSource,
@@ -62,6 +73,16 @@ from openfaas.token_cache import MemoryTokenCache, TokenCache
 __all__ = [
     # Version
     "__version__",
+    # Builder
+    "FunctionBuilder",
+    "BuildConfig",
+    "BuildResult",
+    "BUILDER_CONFIG_FILE_NAME",
+    "BUILD_IN_PROGRESS",
+    "BUILD_SUCCESS",
+    "BUILD_FAILED",
+    "make_tar",
+    "create_build_context",
     # Clients
     "Client",
     # Auth

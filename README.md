@@ -9,6 +9,7 @@ The official Python SDK for [OpenFaaS](https://www.openfaas.com).
 - Multiple auth strategies: Basic auth, OpenFaaS IAM (token exchange), OAuth2 client credentials
 - Pydantic v2 models for all request and response types — validated, typed, IDE-friendly
 - Streaming log support via iterators
+- `FunctionBuilder` client for the [OpenFaaS Pro Function Builder API](https://docs.openfaas.com/openfaas-pro/builder/) — build and push function images from source
 - `FAAS_DEBUG=1` environment variable for request/response logging (auth headers redacted)
 - Context manager support for automatic connection cleanup
 
@@ -299,8 +300,6 @@ with Client("https://gateway.example.com", auth=auth) as client:
 
 ## Error handling
 
-All exceptions inherit from `OpenFaaSError`:
-
 ```python
 from openfaas import Client, BasicAuth
 from openfaas.exceptions import NotFoundError, UnauthorizedError, ForbiddenError, APIConnectionError
@@ -364,6 +363,80 @@ Configure the log level in your application to see the output:
 ```python
 import logging
 logging.basicConfig(level=logging.DEBUG)
+```
+
+## Function Builder
+
+The `FunctionBuilder` client interacts with the [OpenFaaS Pro Function Builder API](https://docs.openfaas.com/openfaas-pro/builder/) to build and push function images from source code.
+
+### Assemble a build context
+
+`create_build_context` prepares a Docker build context on disk from a template and a handler directory.  Templates can be pulled with `faas-cli template store pull <lang>` or fetched from any other source.
+
+```python
+from openfaas.builder import create_build_context, BuildConfig, make_tar, FunctionBuilder
+
+# 1. Assemble the build context from template + handler
+context_path = create_build_context(
+    function_name="hello-world",
+    handler="./hello-world",       # directory containing your function code
+    language="python3",
+    template_dir="./template",     # directory containing pulled templates
+    build_dir="./build",
+)
+
+# 2. Pack the context into a tar archive
+config = BuildConfig(
+    image="ttl.sh/hello-world:1h",
+    platforms=["linux/amd64"],
+)
+make_tar("/tmp/req.tar", context_path, config)
+```
+
+### Build without streaming
+
+`build()` blocks until the builder returns a complete result:
+
+```python
+builder = FunctionBuilder(
+    "http://127.0.0.1:8081",
+    hmac_secret="my-hmac-secret",  # matches the payload-secret in the cluster
+)
+
+result = builder.build("/tmp/req.tar")
+print(result.status)   # "success" / "failed"
+print(result.image)    # fully-qualified image name
+for line in result.log:
+    print(line)
+```
+
+### Build with streaming
+
+`build_stream()` yields `BuildResult` objects as NDJSON lines arrive, allowing you to display log output in real time:
+
+```python
+for result in builder.build_stream("/tmp/req.tar"):
+    for line in result.log:
+        print(line)
+    if result.status in ("success", "failed"):
+        print("Final status:", result.status)
+```
+
+### Skip push
+
+Set `skip_push=True` on `BuildConfig` to build the image without pushing it to a registry:
+
+```python
+config = BuildConfig(image="ttl.sh/hello-world:1h", skip_push=True)
+```
+
+### HMAC request signing
+
+When `hmac_secret` is provided, every request is signed with an HMAC-SHA256 digest sent in the `X-Build-Signature` header.  The secret must match the `payload-secret` configured in the builder deployment:
+
+```bash
+kubectl get secret -n openfaas payload-secret \
+    -o jsonpath='{.data.payload-secret}' | base64 --decode
 ```
 
 ## Development
