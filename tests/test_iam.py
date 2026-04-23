@@ -6,7 +6,7 @@ Covers:
 - exchange_id_token
 - ServiceAccountTokenSource
 - ClientCredentialsTokenSource
-- TokenAuth (sync auth_flow, sync_token)
+- TokenAuth (sync auth_flow, token)
 - ClientCredentialsAuth (sync auth_flow)
 """
 from __future__ import annotations
@@ -229,34 +229,34 @@ class TestServiceAccountTokenSource:
         (tmp_path / "openfaas-token").write_text("my-sa-token\n")
         src = ServiceAccountTokenSource()
         with patch.dict(os.environ, {"token_mount_path": str(tmp_path)}):
-            assert src.sync_token() == "my-sa-token"
+            assert src.token() == "my-sa-token"
 
     def test_strips_whitespace(self, tmp_path: Path) -> None:
         (tmp_path / "openfaas-token").write_text("  tok  \n")
         src = ServiceAccountTokenSource()
         with patch.dict(os.environ, {"token_mount_path": str(tmp_path)}):
-            assert src.sync_token() == "tok"
+            assert src.token() == "tok"
 
     def test_raises_runtime_error_if_file_missing(self, tmp_path: Path) -> None:
         src = ServiceAccountTokenSource()
         with patch.dict(os.environ, {"token_mount_path": str(tmp_path)}):
             with pytest.raises(RuntimeError, match="Unable to load service account token"):
-                src.sync_token()
+                src.token()
 
     def test_raises_value_error_if_path_empty(self) -> None:
         src = ServiceAccountTokenSource()
         with patch.dict(os.environ, {"token_mount_path": ""}):
             with pytest.raises(ValueError, match="Invalid token_mount_path"):
-                src.sync_token()
+                src.token()
 
     def test_re_reads_on_every_call(self, tmp_path: Path) -> None:
         token_file = tmp_path / "openfaas-token"
         token_file.write_text("first")
         src = ServiceAccountTokenSource()
         with patch.dict(os.environ, {"token_mount_path": str(tmp_path)}):
-            assert src.sync_token() == "first"
+            assert src.token() == "first"
             token_file.write_text("second")
-            assert src.sync_token() == "second"
+            assert src.token() == "second"
 
     def test_satisfies_token_source_protocol(self) -> None:
         assert isinstance(ServiceAccountTokenSource(), TokenSource)
@@ -287,7 +287,7 @@ class TestClientCredentialsTokenSource:
         with req_mock.Mocker() as m:
             m.post(_IDP_TOKEN_URL, json={"access_token": "cc-token", "expires_in": 3600})
             src = self._make_source()
-            assert src.sync_token() == "cc-token"
+            assert src.token() == "cc-token"
 
     def test_sync_caches_valid_token(self) -> None:
         call_count = 0
@@ -300,8 +300,8 @@ class TestClientCredentialsTokenSource:
         with req_mock.Mocker() as m:
             m.post(_IDP_TOKEN_URL, json=handler)
             src = self._make_source()
-            src.sync_token()
-            src.sync_token()
+            src.token()
+            src.token()
         assert call_count == 1
 
     def test_satisfies_token_source_protocol(self) -> None:
@@ -332,7 +332,7 @@ class _FakeTokenSource:
         self._value = value
         self.call_count = 0
 
-    def sync_token(self) -> str:
+    def token(self) -> str:
         self.call_count += 1
         return self._value
 
@@ -372,11 +372,11 @@ class TestTokenAuth:
             _apply_auth(auth)
         assert source.call_count == 1
 
-    def test_sync_token_returns_string(self) -> None:
+    def test_token_returns_string(self) -> None:
         with req_mock.Mocker() as m:
             m.post(_TOKEN_URL, json={"access_token": "gw-token", "expires_in": 3600})
             auth, _ = _make_token_auth()
-            assert auth.sync_token() == "gw-token"
+            assert auth.token() == "gw-token"
 
     def test_satisfies_token_source_protocol(self) -> None:
         auth = TokenAuth(token_url=_TOKEN_URL, token_source=_FakeTokenSource())
@@ -392,7 +392,7 @@ class TestTokenAuth:
             m.post(_TOKEN_URL, status_code=400, json={"error": "invalid_grant", "error_description": "upstream token rejected"})
             auth = TokenAuth(token_url=_TOKEN_URL, token_source=_FakeTokenSource())
             with pytest.raises(OAuthError, match="invalid_grant"):
-                auth.sync_token()
+                auth.token()
 
     def test_repr(self) -> None:
         auth = TokenAuth(token_url=_TOKEN_URL, token_source=_FakeTokenSource())

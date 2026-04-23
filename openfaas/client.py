@@ -534,7 +534,7 @@ class Client:
             if cached is not None:
                 return cached.id_token
 
-        id_token = self._function_token_source.sync_token()
+        id_token = self._function_token_source.token()
         token_url = f"{self._gateway_url}/oauth/token"
         token = exchange_id_token(
             token_url,
