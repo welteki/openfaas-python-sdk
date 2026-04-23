@@ -7,7 +7,6 @@ Covers:
 - ServiceAccountTokenSource
 - ClientCredentialsTokenSource
 - TokenAuth (sync auth_flow, token)
-- ClientCredentialsAuth (sync auth_flow)
 """
 from __future__ import annotations
 
@@ -22,7 +21,6 @@ import requests
 import requests_mock as req_mock
 
 from openfaas.auth import (
-    ClientCredentialsAuth,
     ClientCredentialsTokenSource,
     ServiceAccountTokenSource,
     TokenAuth,
@@ -399,23 +397,3 @@ class TestTokenAuth:
         assert "TokenAuth" in repr(auth)
         assert _TOKEN_URL in repr(auth)
 
-
-# ---------------------------------------------------------------------------
-# ClientCredentialsAuth
-# ---------------------------------------------------------------------------
-
-
-class TestClientCredentialsAuth:
-    def test_sync_sets_bearer_header(self) -> None:
-        source = _FakeTokenSource("cc-tok")
-        auth = ClientCredentialsAuth(source)
-        prepared = _apply_auth(auth)
-        assert prepared.headers["Authorization"] == "Bearer cc-tok"
-
-    def test_is_requests_auth(self) -> None:
-        import requests.auth
-        assert isinstance(ClientCredentialsAuth(_FakeTokenSource()), requests.auth.AuthBase)
-
-    def test_repr(self) -> None:
-        auth = ClientCredentialsAuth(_FakeTokenSource())
-        assert "ClientCredentialsAuth" in repr(auth)
