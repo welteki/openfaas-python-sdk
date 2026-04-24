@@ -5,8 +5,6 @@ Represents an access token returned by the OpenFaaS IAM token exchange
 endpoint, along with related error and parsing helpers.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -28,7 +26,7 @@ class Token:
 
     id_token: str
     expiry: datetime | None = None
-    scope: list[str] = field(default_factory=list)
+    scope: list[str] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
 
     def is_expired(self) -> bool:
         """Return ``True`` if the token has expired (or is about to within 10 s)."""

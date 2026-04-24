@@ -1,7 +1,7 @@
 """Tests for the sync Client using requests-mock."""
+
 from __future__ import annotations
 
-import json
 import re
 from collections.abc import Iterator
 from unittest.mock import patch
@@ -11,7 +11,7 @@ import requests
 import requests_mock as req_mock
 
 from openfaas import BasicAuth, Client
-from openfaas.exceptions import ForbiddenError, NotFoundError, UnauthorizedError
+from openfaas.exceptions import NotFoundError
 from openfaas.models import FunctionDeployment, FunctionNamespace, Secret
 
 # ---------------------------------------------------------------------------
@@ -21,13 +21,23 @@ from openfaas.models import FunctionDeployment, FunctionNamespace, Secret
 GATEWAY = "http://gateway.example.com"
 
 FUNCTIONS_LIST = [
-    {"name": "env", "image": "ghcr.io/openfaas/env:latest", "namespace": "openfaas-fn",
-     "replicas": 1, "availableReplicas": 1, "invocationCount": 0},
+    {
+        "name": "env",
+        "image": "ghcr.io/openfaas/env:latest",
+        "namespace": "openfaas-fn",
+        "replicas": 1,
+        "availableReplicas": 1,
+        "invocationCount": 0,
+    },
 ]
 
 FUNCTION_DETAIL = {
-    "name": "env", "image": "ghcr.io/openfaas/env:latest", "namespace": "openfaas-fn",
-    "replicas": 1, "availableReplicas": 1, "invocationCount": 5,
+    "name": "env",
+    "image": "ghcr.io/openfaas/env:latest",
+    "namespace": "openfaas-fn",
+    "replicas": 1,
+    "availableReplicas": 1,
+    "invocationCount": 5,
 }
 
 NAMESPACES_LIST = ["openfaas-fn", "staging"]
@@ -51,6 +61,7 @@ LOG_LINES = [
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture()
 def mock_gateway() -> Iterator[req_mock.Mocker]:
@@ -79,6 +90,7 @@ def client(mock_gateway: req_mock.Mocker) -> Iterator[Client]:
 # ---------------------------------------------------------------------------
 # Per-endpoint mock helpers used by tests that need specific routing
 # ---------------------------------------------------------------------------
+
 
 def _echo_handler(request: requests.PreparedRequest, context: object) -> dict:  # type: ignore[type-arg]
     """Echo back path, method, body and headers — used for invoke assertions."""
@@ -121,6 +133,7 @@ def _make_client(m: req_mock.Mocker) -> Client:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestClientSync:
     def test_get_info(self) -> None:
@@ -245,7 +258,7 @@ class TestClientSync:
 
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
-# invoke_function
+# invoke_function / invoke_function_async
 # ---------------------------------------------------------------------------
 
 
@@ -253,7 +266,7 @@ class TestClientInvokeSync:
     def test_invoke_basic_post(self) -> None:
         with req_mock.Mocker() as m:
             c = _make_client(m)
-            resp = c.invoke_function("env", payload=b"hello")
+            resp = c.invoke_function("env", method="POST", payload=b"hello")
         assert resp.status_code == 200
         data = resp.json()
         assert data["path"] == "/function/env.openfaas-fn"
@@ -263,13 +276,13 @@ class TestClientInvokeSync:
     def test_invoke_str_payload(self) -> None:
         with req_mock.Mocker() as m:
             c = _make_client(m)
-            resp = c.invoke_function("env", payload="world")
+            resp = c.invoke_function("env", method="POST", payload="world")
         assert resp.json()["body"] == "world"
 
     def test_invoke_no_payload(self) -> None:
         with req_mock.Mocker() as m:
             c = _make_client(m)
-            resp = c.invoke_function("env")
+            resp = c.invoke_function("env", method="POST")
         assert resp.status_code == 200
         assert resp.json()["body"] == ""
 
@@ -282,54 +295,34 @@ class TestClientInvokeSync:
     def test_invoke_custom_namespace(self) -> None:
         with req_mock.Mocker() as m:
             c = _make_client(m)
-            resp = c.invoke_function("env", "staging")
+            resp = c.invoke_function("env", "staging", method="POST")
         assert resp.json()["path"] == "/function/env.staging"
 
     def test_invoke_custom_headers(self) -> None:
         with req_mock.Mocker() as m:
             c = _make_client(m)
-            resp = c.invoke_function("env", headers={"X-Custom": "value"})
+            resp = c.invoke_function("env", method="POST", headers={"X-Custom": "value"})
         assert resp.json()["headers"]["X-Custom"] == "value"
 
     def test_invoke_query_params(self) -> None:
         with req_mock.Mocker() as m:
             c = _make_client(m)
-            resp = c.invoke_function("env", query_params={"foo": "bar"})
+            resp = c.invoke_function("env", method="GET", query_params={"foo": "bar"})
         assert resp.status_code == 200
-
-    def test_invoke_async_route(self) -> None:
-        with req_mock.Mocker() as m:
-            c = _make_client(m)
-            resp = c.invoke_function("env", async_invoke=True)
-        assert resp.json()["path"] == "/async-function/env.openfaas-fn"
-
-    def test_invoke_async_with_callback_url(self) -> None:
-        with req_mock.Mocker() as m:
-            c = _make_client(m)
-            resp = c.invoke_function("env", async_invoke=True, callback_url="https://example.com/cb")
-        data = resp.json()
-        assert data["path"] == "/async-function/env.openfaas-fn"
-        assert data["callback_url"] == "https://example.com/cb"
-
-    def test_invoke_callback_without_async_raises(self) -> None:
-        with req_mock.Mocker() as m:
-            c = _make_client(m)
-            with pytest.raises(ValueError, match="async_invoke"):
-                c.invoke_function("env", callback_url="https://example.com/cb")
 
     def test_non_2xx_not_raised(self) -> None:
         with req_mock.Mocker() as m:
             c = _make_client(m)
             # Register a 500 for a specific function path — should be returned, not raised
             m.post(f"{GATEWAY}/function/broken.openfaas-fn", status_code=500, text="internal error")
-            resp = c.invoke_function("broken")
+            resp = c.invoke_function("broken", method="POST")
         assert resp.status_code == 500
 
     def test_invoke_with_function_auth(self) -> None:
         with req_mock.Mocker() as m:
             c = _make_client(m)
             with patch.object(c, "get_function_token", return_value="fn-tok") as mock_gft:
-                resp = c.invoke_function("env", use_function_auth=True)
+                resp = c.invoke_function("env", method="POST", use_function_auth=True)
             mock_gft.assert_called_once_with("env", "openfaas-fn")
         assert resp.json()["headers"]["Authorization"] == "Bearer fn-tok"
 
@@ -337,5 +330,45 @@ class TestClientInvokeSync:
         with req_mock.Mocker() as m:
             c = _make_client(m)
             with patch.object(c, "get_function_token", return_value="scoped-tok") as mock_gft:
-                c.invoke_function("env", "staging", use_function_auth=True)
+                c.invoke_function("env", "staging", method="POST", use_function_auth=True)
             mock_gft.assert_called_once_with("env", "staging")
+
+
+class TestClientInvokeAsync:
+    def test_invoke_async_route(self) -> None:
+        with req_mock.Mocker() as m:
+            c = _make_client(m)
+            resp = c.invoke_function_async("env")
+        assert resp.json()["path"] == "/async-function/env.openfaas-fn"
+
+    def test_invoke_async_uses_post(self) -> None:
+        with req_mock.Mocker() as m:
+            c = _make_client(m)
+            resp = c.invoke_function_async("env")
+        assert resp.json()["method"] == "POST"
+
+    def test_invoke_async_custom_namespace(self) -> None:
+        with req_mock.Mocker() as m:
+            c = _make_client(m)
+            resp = c.invoke_function_async("env", "staging")
+        assert resp.json()["path"] == "/async-function/env.staging"
+
+    def test_invoke_async_with_payload(self) -> None:
+        with req_mock.Mocker() as m:
+            c = _make_client(m)
+            resp = c.invoke_function_async("env", payload=b"data")
+        assert resp.json()["body"] == "data"
+
+    def test_invoke_async_with_callback_url(self) -> None:
+        with req_mock.Mocker() as m:
+            c = _make_client(m)
+            resp = c.invoke_function_async("env", callback_url="https://example.com/cb")
+        assert resp.json()["callback_url"] == "https://example.com/cb"
+
+    def test_invoke_async_with_function_auth(self) -> None:
+        with req_mock.Mocker() as m:
+            c = _make_client(m)
+            with patch.object(c, "get_function_token", return_value="fn-tok") as mock_gft:
+                resp = c.invoke_function_async("env", use_function_auth=True)
+            mock_gft.assert_called_once_with("env", "openfaas-fn")
+        assert resp.json()["headers"]["Authorization"] == "Bearer fn-tok"

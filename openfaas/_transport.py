@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import logging
 import os
-import re
 
 import requests
 
@@ -22,11 +21,6 @@ from openfaas._version import __version__
 logger = logging.getLogger("openfaas")
 
 _USER_AGENT = f"openfaas-python-sdk/{__version__}"
-_AUTH_REDACT_RE = re.compile(r"(Basic|Bearer)\s+\S+", re.IGNORECASE)
-
-
-def _redact_auth(value: str) -> str:
-    return _AUTH_REDACT_RE.sub(r"\1 [REDACTED]", value)
 
 
 def _is_debug() -> bool:

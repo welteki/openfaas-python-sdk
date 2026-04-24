@@ -251,29 +251,38 @@ for msg in client.get_logs("env", namespace="openfaas-fn", since=since):
 `invoke_function` returns the raw `requests.Response` from the function.  Non-2xx responses are **not** raised as exceptions — function responses are application-level and the caller decides how to interpret them.
 
 ```python
-# Simple POST with a bytes or str payload
-resp = client.invoke_function("env", payload=b"hello")
+# POST with a bytes or str payload
+resp = client.invoke_function("env", method="POST", payload=b"hello")
 print(resp.status_code, resp.text)
 
-# Custom method and namespace
-resp = client.invoke_function("env", "staging", method="GET")
+# GET with no payload
+resp = client.invoke_function("env", method="GET")
+
+# Custom namespace
+resp = client.invoke_function("env", "staging", method="POST")
 
 # Pass extra headers and query parameters
 resp = client.invoke_function(
     "env",
+    method="POST",
     payload="hello",
     headers={"Content-Type": "text/plain"},
     query_params={"verbose": "1"},
 )
+```
 
-# Async (queued) invocation — gateway responds 202 Accepted immediately
-client.invoke_function("env", async_invoke=True)
+### Async (queued) invocation
+
+`invoke_function_async` queues the invocation via the gateway's `/async-function/` route and returns immediately with a `202 Accepted` response.  The function result is not returned synchronously.
+
+```python
+# Async invocation — returns 202 immediately
+client.invoke_function_async("env", payload=b"data")
 
 # Async invocation with a callback URL
-client.invoke_function(
+client.invoke_function_async(
     "env",
     payload=b"data",
-    async_invoke=True,
     callback_url="https://my-service.example.com/callback",
 )
 ```
@@ -294,7 +303,7 @@ auth = TokenAuth(
 )
 
 with Client("https://gateway.example.com", auth=auth) as client:
-    resp = client.invoke_function("my-func", "openfaas-fn", use_function_auth=True)
+    resp = client.invoke_function("my-func", "openfaas-fn", method="POST", use_function_auth=True)
     print(resp.text)
 ```
 

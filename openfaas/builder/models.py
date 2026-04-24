@@ -2,8 +2,6 @@
 Data models for the OpenFaaS Function Builder API.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 
 # Name of the build config file embedded in the tar archive.
@@ -31,8 +29,8 @@ class BuildConfig:
     """
 
     image: str
-    build_args: dict[str, str] = field(default_factory=dict)
-    platforms: list[str] = field(default_factory=list)
+    build_args: dict[str, str] = field(default_factory=dict)  # pyright: ignore[reportUnknownVariableType]
+    platforms: list[str] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     skip_push: bool = False
 
     def to_dict(self) -> dict[str, object]:
@@ -68,10 +66,10 @@ class BuildResult:
     error: str = ""
 
     @classmethod
-    def from_dict(cls, data: dict[str, object]) -> BuildResult:
+    def from_dict(cls, data: dict[str, object]) -> "BuildResult":
         """Construct a :class:`BuildResult` from a parsed JSON dict."""
         return cls(
-            log=list(data.get("log") or []),
+            log=list(data.get("log") or []),  # type: ignore[arg-type]
             image=str(data.get("image") or ""),
             status=str(data.get("status") or ""),
             error=str(data.get("error") or ""),

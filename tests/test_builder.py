@@ -17,12 +17,11 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
-import os
 import tarfile
-import tempfile
 from pathlib import Path
 
 import pytest
+import requests
 import requests_mock as req_mock
 
 from openfaas.builder import (
@@ -365,7 +364,7 @@ class TestFunctionBuilder:
         with req_mock.Mocker() as m:
             m.post(_BUILD_URL, text="Unauthorized", status_code=401)
             builder = FunctionBuilder(_BUILDER_URL)
-            with pytest.raises(Exception):
+            with pytest.raises(requests.HTTPError):
                 builder.build(str(tar_file))
 
     def test_build_sets_content_type(self, tar_file: Path) -> None:
@@ -430,5 +429,5 @@ class TestFunctionBuilder:
         with req_mock.Mocker() as m:
             m.post(_BUILD_URL, text="Forbidden", status_code=403)
             builder = FunctionBuilder(_BUILDER_URL)
-            with pytest.raises(Exception):
+            with pytest.raises(requests.HTTPError):
                 list(builder.build_stream(str(tar_file)))

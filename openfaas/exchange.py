@@ -105,7 +105,7 @@ def exchange_id_token(
                     err.get("error_description", ""),
                 )
             except (ValueError, KeyError):
-                raise OAuthError("unknown_error", response.text)
+                raise OAuthError("unknown_error", response.text) from None
 
         response.raise_for_status()
         return parse_token_response(response.json())

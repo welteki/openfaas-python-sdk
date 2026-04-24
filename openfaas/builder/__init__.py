@@ -28,10 +28,10 @@ Quickstart::
 
 from openfaas.builder.client import FunctionBuilder
 from openfaas.builder.models import (
-    BUILDER_CONFIG_FILE_NAME,
     BUILD_FAILED,
     BUILD_IN_PROGRESS,
     BUILD_SUCCESS,
+    BUILDER_CONFIG_FILE_NAME,
     BuildConfig,
     BuildResult,
 )

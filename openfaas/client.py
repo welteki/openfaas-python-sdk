@@ -244,9 +244,7 @@ class Client:
 
     def update_namespace(self, spec: FunctionNamespace) -> int:
         """Update an existing namespace.  Returns the HTTP status code."""
-        response = self._request(
-            "PUT", f"/system/namespace/{spec.name}", json=_inject_openfaas_labels(spec)
-        )
+        response = self._request("PUT", f"/system/namespace/{spec.name}", json=_inject_openfaas_labels(spec))
         _raise_for_status(response)
         return response.status_code
 
@@ -389,12 +387,10 @@ class Client:
         name: str,
         namespace: str = "openfaas-fn",
         *,
+        method: str,
         payload: bytes | str | None = None,
-        method: str = "POST",
         headers: dict[str, str] | None = None,
         query_params: dict[str, str] | None = None,
-        async_invoke: bool = False,
-        callback_url: str | None = None,
         use_function_auth: bool = False,
     ) -> requests.Response:
         """Invoke a deployed function and return the raw response.
@@ -405,18 +401,11 @@ class Client:
         Args:
             name: Function name.
             namespace: Function namespace.  Defaults to ``"openfaas-fn"``.
+            method: HTTP method, e.g. ``"GET"`` or ``"POST"``.
             payload: Request body.  Accepts :class:`bytes` or :class:`str`
                 (UTF-8 encoded automatically).
-            method: HTTP method.  Defaults to ``"POST"``.
             headers: Additional request headers merged with any auth headers.
             query_params: Query string parameters.
-            async_invoke: If ``True``, the request is sent to
-                ``/async-function/{name}.{namespace}`` and the gateway queues
-                the invocation.  The gateway responds with ``202 Accepted``
-                and the function result is not returned synchronously.
-            callback_url: When *async_invoke* is ``True``, the gateway will
-                ``POST`` the function result to this URL.  Ignored unless
-                *async_invoke* is also ``True``.
             use_function_auth: If ``True``, obtain a per-function scoped token
                 via :meth:`get_function_token` and attach it as
                 ``Authorization: Bearer <token>``, overriding any gateway-level
@@ -424,23 +413,88 @@ class Client:
                 configured on the client.
 
         Returns:
-            The raw :class:`requests.Response` from the function (or gateway
-            for async invocations).
+            The raw :class:`requests.Response` from the function.
 
         Raises:
-            :exc:`ValueError`: If *callback_url* is set but *async_invoke* is
-                ``False``.
             :exc:`~openfaas.APIConnectionError`: On network or timeout errors.
         """
-        if callback_url is not None and not async_invoke:
-            raise ValueError("callback_url requires async_invoke=True")
+        url = f"{self._gateway_url}/function/{name}.{namespace}"
+        return self._invoke(
+            method=method,
+            url=url,
+            name=name,
+            namespace=namespace,
+            payload=payload,
+            headers=headers,
+            query_params=query_params,
+            use_function_auth=use_function_auth,
+        )
 
-        route = "async-function" if async_invoke else "function"
-        url = f"{self._gateway_url}/{route}/{name}.{namespace}"
+    def invoke_function_async(
+        self,
+        name: str,
+        namespace: str = "openfaas-fn",
+        *,
+        payload: bytes | str | None = None,
+        headers: dict[str, str] | None = None,
+        query_params: dict[str, str] | None = None,
+        callback_url: str | None = None,
+        use_function_auth: bool = False,
+    ) -> requests.Response:
+        """Queue a function invocation and return the gateway's 202 response.
 
+        The gateway queues the invocation and responds immediately with
+        ``202 Accepted``.  The function result is not returned synchronously.
+
+        Args:
+            name: Function name.
+            namespace: Function namespace.  Defaults to ``"openfaas-fn"``.
+            payload: Request body.  Accepts :class:`bytes` or :class:`str`
+                (UTF-8 encoded automatically).
+            headers: Additional request headers merged with any auth headers.
+            query_params: Query string parameters.
+            callback_url: If provided, the gateway will ``POST`` the function
+                result to this URL once the invocation completes.
+            use_function_auth: If ``True``, obtain a per-function scoped token
+                via :meth:`get_function_token` and attach it as
+                ``Authorization: Bearer <token>``, overriding any gateway-level
+                auth header.  Requires a ``function_token_source`` to be
+                configured on the client.
+
+        Returns:
+            The ``202 Accepted`` :class:`requests.Response` from the gateway.
+
+        Raises:
+            :exc:`~openfaas.APIConnectionError`: On network or timeout errors.
+        """
+        url = f"{self._gateway_url}/async-function/{name}.{namespace}"
         merged_headers: dict[str, str] = dict(headers) if headers else {}
         if callback_url is not None:
             merged_headers["X-Callback-Url"] = callback_url
+        return self._invoke(
+            method="POST",
+            url=url,
+            name=name,
+            namespace=namespace,
+            payload=payload,
+            headers=merged_headers,
+            query_params=query_params,
+            use_function_auth=use_function_auth,
+        )
+
+    def _invoke(
+        self,
+        *,
+        method: str,
+        url: str,
+        name: str,
+        namespace: str,
+        payload: bytes | str | None,
+        headers: dict[str, str] | None,
+        query_params: dict[str, str] | None,
+        use_function_auth: bool,
+    ) -> requests.Response:
+        merged_headers: dict[str, str] = dict(headers) if headers else {}
 
         data: bytes | None = None
         if payload is not None:

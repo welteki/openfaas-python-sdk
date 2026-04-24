@@ -1,13 +1,13 @@
 """Tests for auth implementations."""
+
 from __future__ import annotations
 
 import base64
 
-import pytest
 import requests
 import requests.auth
 
-from openfaas.auth import BasicAuth, TokenSource
+from openfaas.auth import BasicAuth
 
 
 def _apply_auth(auth: requests.auth.AuthBase) -> requests.PreparedRequest:

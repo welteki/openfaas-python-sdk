@@ -140,9 +140,7 @@ class TokenAuth(requests.auth.AuthBase):
                 except OAuthError:
                     raise
                 except Exception as exc:
-                    raise RuntimeError(
-                        f"Failed to exchange token for an OpenFaaS token: {exc}"
-                    ) from exc
+                    raise RuntimeError(f"Failed to exchange token for an OpenFaaS token: {exc}") from exc
             return self._token.id_token
 
     def __repr__(self) -> str:
@@ -182,17 +180,14 @@ class ServiceAccountTokenSource:
         mount_path = os.environ.get("token_mount_path", _DEFAULT_TOKEN_MOUNT_PATH).strip()
         if not mount_path:
             raise ValueError(
-                "Invalid token_mount_path: path is empty. "
-                "Set the 'token_mount_path' environment variable."
+                "Invalid token_mount_path: path is empty. Set the 'token_mount_path' environment variable."
             )
         token_path = os.path.join(mount_path, _TOKEN_FILENAME)
         try:
             with open(token_path) as f:
                 return f.read().strip()
         except OSError as exc:
-            raise RuntimeError(
-                f"Unable to load service account token from {token_path}: {exc}"
-            ) from exc
+            raise RuntimeError(f"Unable to load service account token from {token_path}: {exc}") from exc
 
     def __repr__(self) -> str:
         mount_path = os.environ.get("token_mount_path", _DEFAULT_TOKEN_MOUNT_PATH)
@@ -271,22 +266,15 @@ class ClientCredentialsTokenSource:
         _owns_session = self._http_client is None
         session = self._http_client or requests.Session()
         try:
-            response = session.post(
-                self._token_url, data=self._build_data(), timeout=self._timeout
-            )
+            response = session.post(self._token_url, data=self._build_data(), timeout=self._timeout)
         finally:
             if _owns_session:
                 session.close()
         if not response.ok:
             raise RuntimeError(
-                f"Failed to obtain client credentials token: "
-                f"HTTP {response.status_code} — {response.text}"
+                f"Failed to obtain client credentials token: HTTP {response.status_code} — {response.text}"
             )
         return parse_token_response(response.json())
 
     def __repr__(self) -> str:
-        return (
-            f"ClientCredentialsTokenSource("
-            f"client_id={self._client_id!r}, token_url={self._token_url!r})"
-        )
-
+        return f"ClientCredentialsTokenSource(client_id={self._client_id!r}, token_url={self._token_url!r})"

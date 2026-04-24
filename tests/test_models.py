@@ -1,7 +1,6 @@
 """Tests for Pydantic models."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from openfaas.models import (
     FunctionDeployment,

@@ -8,6 +8,7 @@ Covers:
 - ClientCredentialsTokenSource
 - TokenAuth (sync auth_flow, token)
 """
+
 from __future__ import annotations
 
 import os
@@ -29,7 +30,6 @@ from openfaas.auth import (
 from openfaas.exchange import exchange_id_token
 from openfaas.token import OAuthError, Token, parse_token_response
 from openfaas.token_cache import MemoryTokenCache
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -303,15 +303,11 @@ class TestClientCredentialsTokenSource:
         assert call_count == 1
 
     def test_satisfies_token_source_protocol(self) -> None:
-        src = ClientCredentialsTokenSource(
-            client_id="a", client_secret="b", token_url=_IDP_TOKEN_URL
-        )
+        src = ClientCredentialsTokenSource(client_id="a", client_secret="b", token_url=_IDP_TOKEN_URL)
         assert isinstance(src, TokenSource)
 
     def test_repr_does_not_leak_secret(self) -> None:
-        src = ClientCredentialsTokenSource(
-            client_id="app", client_secret="topsecret", token_url=_IDP_TOKEN_URL
-        )
+        src = ClientCredentialsTokenSource(client_id="app", client_secret="topsecret", token_url=_IDP_TOKEN_URL)
         r = repr(src)
         assert "ClientCredentialsTokenSource" in r
         assert "app" in r
@@ -412,12 +408,17 @@ class TestTokenAuth:
 
     def test_is_requests_auth(self) -> None:
         import requests.auth
+
         auth = TokenAuth(token_url=_TOKEN_URL, token_source=_FakeTokenSource())
         assert isinstance(auth, requests.auth.AuthBase)
 
     def test_raises_oauth_error_on_bad_exchange(self) -> None:
         with req_mock.Mocker() as m:
-            m.post(_TOKEN_URL, status_code=400, json={"error": "invalid_grant", "error_description": "upstream token rejected"})
+            m.post(
+                _TOKEN_URL,
+                status_code=400,
+                json={"error": "invalid_grant", "error_description": "upstream token rejected"},
+            )
             auth = TokenAuth(token_url=_TOKEN_URL, token_source=_FakeTokenSource())
             with pytest.raises(OAuthError, match="invalid_grant"):
                 auth.token()
@@ -426,4 +427,3 @@ class TestTokenAuth:
         auth = TokenAuth(token_url=_TOKEN_URL, token_source=_FakeTokenSource())
         assert "TokenAuth" in repr(auth)
         assert _TOKEN_URL in repr(auth)
-

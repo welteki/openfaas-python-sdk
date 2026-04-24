@@ -104,7 +104,7 @@ def create_build_context(
     except ValueError:
         raise ValueError(
             f"function_name must not contain path separators or traversal sequences: {function_name!r}"
-        )
+        ) from None
 
     # Clear and re-create the context directory.
     if context_path.exists():
@@ -120,11 +120,9 @@ def create_build_context(
         except ValueError:
             raise ValueError(
                 f"language must not contain path separators or traversal sequences: {language!r}"
-            )
+            ) from None
         if not template_src.exists():
-            raise FileNotFoundError(
-                f"Template directory not found: {template_src}"
-            )
+            raise FileNotFoundError(f"Template directory not found: {template_src}")
         _copy_tree(str(template_src), str(context_path))
 
     # Overlay the handler directory, skipping build/ and template/ subdirs.
@@ -134,7 +132,7 @@ def create_build_context(
     except ValueError:
         raise ValueError(
             f"handler_overlay must not contain path separators or traversal sequences: {handler_overlay!r}"
-        )
+        ) from None
     overlay_dest.mkdir(parents=True, exist_ok=True)
     handler_path = Path(handler).resolve()
     _copy_handler(str(handler_path), str(overlay_dest))
@@ -200,7 +198,5 @@ def _path_in_scope(path: str, scope: str) -> str:
     if abs_path == abs_scope:
         raise ValueError(f"Path must not be the scope root itself: {path!r}")
     if not abs_path.startswith(abs_scope + os.sep):
-        raise ValueError(
-            f"Path {path!r} resolves outside the allowed scope {scope!r}"
-        )
+        raise ValueError(f"Path {path!r} resolves outside the allowed scope {scope!r}")
     return abs_path
