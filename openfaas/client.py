@@ -250,7 +250,8 @@ class Client:
 
     def delete_namespace(self, namespace: str) -> None:
         """Delete a namespace."""
-        response = self._request("DELETE", f"/system/namespace/{namespace}")
+        body = FunctionNamespace(name=namespace)
+        response = self._request("DELETE", f"/system/namespace/{namespace}", json=_inject_openfaas_labels(body))
         _raise_for_status(response)
 
     # ------------------------------------------------------------------
