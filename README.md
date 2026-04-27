@@ -132,6 +132,32 @@ with Client("https://gateway.example.com", auth=auth) as client:
     functions = client.get_functions("openfaas-fn")
 ```
 
+### Custom token sources
+
+If the built-in token sources don't fit your setup, you can implement your own. The `TokenSource` protocol requires a single method, `token() -> str`, that returns a raw OIDC JWT. The implementation can contain any logic you need, for example reading a token from a file, calling an external API, or signing a JWT locally:
+
+```python
+class FileTokenSource:
+    """Read a token from a file on each call."""
+
+    def __init__(self, path: str) -> None:
+        self._path = path
+
+    def token(self) -> str:
+        with open(self._path) as f:
+            return f.read().strip()
+```
+
+Wire it up with `TokenAuth` the same way as any other token source:
+
+```python
+ts = FileTokenSource("/var/run/secrets/oidc-token")
+auth = TokenAuth(
+    token_url="https://gateway.example.com/oauth/token",
+    token_source=ts,
+)
+```
+
 ### Per-function scoped tokens
 
 `get_function_token()` exchanges the current identity token for a short-lived token scoped to a specific function (audience `"<namespace>:<function-name>"`). Use this token when invoking functions directly:
